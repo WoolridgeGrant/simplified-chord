@@ -15,31 +15,57 @@ struct successor{
 
 int id_peers[NB_SITE];
 struct successor succ[NB_SITE];
-int frd[NB_SITE]; //frd[i] est l'id de la premiere donnee dont est responsable le site id_peers[i]
+int frd[NB_SITE];
+int resp[NB_SITE];
 
 int id_ajout = -1;
 
 //Reste a definir le random pour l'ajout et le frd
-int id_generator(){
+int id_generator()
+{
 	int r = 0;
-	int i = 0, j = 0;
+	int i = 0, j = 0, k = 0;
 	int exist = 0;	
 
-	//Definition des id des differents sites de maniere aleatoire
+	/*
+	 * Definition des id des differents 
+	 * sites de maniere aleatoire
+	 */
 	while(i < NB_SITE){
-			r = rand() % NB_DATA; //à revoir
-			for(j = 0; j < i; j++)
-				if(r == id_peers[j])
-					exist = 1;
+		r = rand() % NB_DATA; //à revoir
+		for(j = 0; j < i; j++)
+			if(r == id_peers[j])
+				exist = 1;
 
-			if(exist){
-				exist = 0;
-				continue;
-			}
+		if(exist){
+			exist = 0;
+			continue;
+		}
 
-			id_peers[i] = r;
-			i++;
+		k = 0;
+		while((id_peers[k] != 0) && (r > id_peers[k]))
+			k+=1;
+			
+		while(j > k){
+			id_peers[j] = id_peers[j-1];
+			j -= 1;
+		}
+
+		id_peers[k] = r;
+		i++;
 	}
+
+
+	frd[0] = (id_peers[NB_SITE - 1] + 1) % NB_DATA;
+	for(i = 1; i < NB_SITE; i++)
+		frd[i] = id_peers[i-1] + 1;
+
+	for(i = 0; i < NB_SITE; i++)
+		printf("[  id_generator  ]  id_peers[%d] = %d\n", i, id_peers[i]);
+
+	for(i = 0; i < NB_SITE; i++)
+		printf("[  id_generator  ]  frd[%d] = %d\n", i, frd[i]);
+
 
 	//Definition du successeur de chacun des sites
 	for(i = 0; i < NB_SITE; i++){
@@ -76,9 +102,8 @@ void simulateur(void) {
 	int i;
 	
 	srand(time(NULL));
-
 	id_generator();
-		               
+			       
 	for(i=0; i<NB_SITE; i++){
 		//i car le dernier processus est l'initiateur
 		MPI_Ssend(&id_peers[i], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);  			//son propre id  
@@ -118,6 +143,7 @@ int main (int argc, char* argv[]) {
 	//L'initiateur va etre le dernier processus pour des raisons pratiques (par rapport a l'indice la boucle
 	//De cette maniere les rang MPI des sites iront de 0 a NB_SITE-1 et l'initiateur aura
 	//pour rang MPI NB_SITE
+
 	if (rang == NB_SITE)
 		simulateur();
 	else
@@ -126,3 +152,4 @@ int main (int argc, char* argv[]) {
 	MPI_Finalize();
 	return 0;
 }
+
