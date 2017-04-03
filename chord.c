@@ -54,7 +54,6 @@ void id_generator()
 		i++;
 	}
 
-
 	resp[0] = (id_peers[NB_SITE - 1] + 1) % NB_DATA;
 	for(i = 1; i < NB_SITE; i++)
 		resp[i] = id_peers[i-1] + 1;
@@ -65,35 +64,12 @@ void id_generator()
 	for(i = 0; i < NB_SITE; i++)
 		printf("[  id_generator  ]  resp[%d] = %d\n", i, resp[i]);
 
-
 	//Definition du successeur de chacun des sites
-	for(i = 0; i < NB_SITE; i++){
-		//Attribution des premieres donnees dont chaque site est responsable 
-		//L'id de la premiere donnee dont chaque site est responsable est egale a la sienne
-		resp[i] = id_peers[i];
-		
-		succ[i].id_succ = NB_DATA+1; //Ils seront tous plus petits que NB_DATA+1
-
-		for(j = 0; j < NB_SITE; j++){
-			//Le plus petit parmi tout ceux plus grand que lui
-			if ((i != j) && (id_peers[i] < id_peers[j]) && (succ[i].id_succ > id_peers[j])){
-				succ[i].id_succ = id_peers[j];
-				succ[i].rang_succ = j; 
-			}
-		}
-
-		//Les deux noeuds qui sont tout au debut du cercle et tout a la fin du cercle
-		if(succ[i].id_succ == NB_DATA+1){
-			//Recherche du plus petit des id chord
-			succ[i].id_succ = id_peers[0];
-			succ[i].rang_succ = 0;
-			for(j = 1; j < NB_SITE; j++){
-				if(succ[i].id_succ > id_peers[j]){
-					succ[i].id_succ = id_peers[j];
-					succ[i].rang_succ = j;
-				}
-			}
-		}
+	succ[NB_SITE-1].id_succ = id_peers[0];
+	succ[NB_SITE-1].rang_succ = 0;
+	for(i=0; i < NB_SITE-1; i++){
+		succ[i].id_succ = id_peers[i+1];
+		succ[i].rang_succ = i+1;
 	}
 }
 
@@ -105,7 +81,7 @@ void simulateur(void) {
 			       
 	for(i=0; i<NB_SITE; i++){
 		//i car le dernier processus est l'initiateur
-		MPI_Ssend(&id_peers[i], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);  			//son propre id  
+		MPI_Ssend(&id_peers[i], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);  		//son propre id  
 		MPI_Ssend(&succ[i].id_succ, 1, MPI_INT, i, succ[i].rang_succ, MPI_COMM_WORLD);	//son successeur (envoi du rang MPI du successeur via le TAG)
 		MPI_Ssend(&resp[i], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);			//l'id de la premiere donnee dont il responsable
 	}
