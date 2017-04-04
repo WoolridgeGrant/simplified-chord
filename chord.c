@@ -20,7 +20,7 @@ int resp[NB_SITE];
 int id_ajout = -1;
 
 //Reste a definir le random pour l'ajout et le resp
-void id_generator()
+void initialisation()
 {
 	int r = 0;
 	int i = 0, j = 0, k = 0;
@@ -59,10 +59,10 @@ void id_generator()
 		resp[i] = id_peers[i-1] + 1;
 
 	for(i = 0; i < NB_SITE; i++)
-		printf("[  id_generator  ]  id_peers[%d] = %d\n", i, id_peers[i]);
+		printf("[  initialisation ]  id_peers[%d] = %d\n", i, id_peers[i]);
 
 	for(i = 0; i < NB_SITE; i++)
-		printf("[  id_generator  ]  resp[%d] = %d\n", i, resp[i]);
+		printf("[  initialisation ]  resp[%d] = %d\n", i, resp[i]);
 
 	//Definition du successeur de chacun des sites
 	succ[NB_SITE-1].id_succ = id_peers[0];
@@ -77,7 +77,7 @@ void simulateur(void) {
 	int i;
 	
 	srand(time(NULL));
-	id_generator();
+	initialisation();
 			       
 	for(i=0; i<NB_SITE; i++){
 		//i car le dernier processus est l'initiateur
