@@ -4,9 +4,12 @@
 #include <unistd.h> 
 #include <time.h>
 
-#define NB_SITE   6
-#define NB_DATA   64 /*On suppose que les id des donnees s'etendent de 0 a 64*/
+#define NB_SITE 6
+#define NB_DATA 64 /*On suppose que les id des donnees s'etendent de 0 a 64*/
 #define TAGINIT 0
+#define TAGRESP 1
+#define TAGTERM 2 /*Message de terminaison*/
+#define DATA_RECHERCHE 60 /*Modifier cette variable pour chercher le responsable d'une donnee a partir de son id*/
 
 struct successor{
 	int id_succ;
@@ -22,14 +25,18 @@ int id_ajout = -1;
 //Reste a definir le random pour l'ajout et le resp
 void initialisation()
 {
-	int r = 0;
-	int i = 0, j = 0, k = 0;
+	int r = 0, i = 0, j = 0, k = 0;
 	int exist = 0;	
 
 	/*
 	 * Definition des id des differents 
 	 * sites de maniere aleatoire
 	 */
+	/*TODO: Changer id_peers en id_chord
+	 * id_succ en id_chord_succ
+	 * rang_succ en rang_mpi_succ
+	 */
+
 	while(i < NB_SITE){
 		r = rand() % NB_DATA; //à revoir
 		for(j = 0; j < i; j++)
@@ -88,17 +95,72 @@ void simulateur(void) {
 }
 
 void test_initialisation(int rang){
+	//Initialisation
 	int id_chord;
-	int id_succ;
-	int rang_succ;
+	int id_chord_succ;
+	int rang_mpi_succ;
 	int resp;
+
+	//Recherche d'une donnee
+	int id_chord_resp; //L'id chord du responsable de la donnee que l'on recherche
+	int id_data_recherche; //L'id de la donnee que l'on recherche
+	int id_donnee = DATA_RECHERCHE; //L'id de la donnee que l'on recherche
+	int initiateur;
+
 	MPI_Status status;
 	MPI_Recv(&id_chord, 1, MPI_INT, NB_SITE, TAGINIT, MPI_COMM_WORLD, &status);
-	MPI_Recv(&id_succ, 1, MPI_INT, NB_SITE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-	rang_succ = status.MPI_TAG;
+	MPI_Recv(&id_chord_succ, 1, MPI_INT, NB_SITE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+	rang_mpi_succ = status.MPI_TAG;
 	MPI_Recv(&resp, 1, MPI_INT, NB_SITE, TAGINIT, MPI_COMM_WORLD, &status);
 
-	printf("Mon rang : %d, Mon id_chord : %d, Mon successeur : %d, rang succ: %d\n", rang, id_chord, id_succ, rang_succ);
+	printf("Mon rang : %d, Mon id_chord : %d, Mon successeur : %d, rang succ: %d\n", rang, id_chord, id_chord_succ, rang_mpi_succ);
+
+	/*Recherche de la donnee ayant pour id DATA_RECHERCHE*/
+	if(rang == 1){
+		/*Tester localement s'il n'est pas lui meme responsable de la donnee qu'il demande*/ 
+		MPI_Ssend(&id_donnee, 1, MPI_INT, rang_mpi_succ, rang, MPI_COMM_WORLD);	
+		MPI_Recv(&id_chord_resp, 1, MPI_INT, MPI_ANY_SOURCE, TAGRESP, MPI_COMM_WORLD, &status);
+		printf("Le noeud responsable de la donnee %d est a pour id chord : %d\n", id_donnee, id_chord_resp);
+	}
+	else{
+		MPI_Recv(&id_data_recherche, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+		if(status.MPI_TAG == TAGTERM){
+			initiateur = id_data_recherche;
+			if(rang_mpi_succ != initiateur)
+				MPI_Ssend(&initiateur, 1, MPI_INT, rang_mpi_succ, TAGTERM, MPI_COMM_WORLD);	
+			return;	
+		}
+		initiateur = status.MPI_TAG;
+		if(id_chord < resp){
+			if((id_data_recherche >= resp && id_data_recherche <= NB_DATA) || (id_data_recherche >= 0 && id_data_recherche <= id_chord)){
+				//Ce noeud est responsable de la donnee recherchee
+				printf("Responsable trouve : %d\n", id_chord);
+				MPI_Ssend(&id_chord, 1, MPI_INT, initiateur, TAGRESP, MPI_COMM_WORLD);	
+				//Envoi du message de terminaison a tout ceux qui suivent
+				if(rang_mpi_succ != initiateur)
+					MPI_Ssend(&initiateur, 1, MPI_INT, rang_mpi_succ, TAGTERM, MPI_COMM_WORLD); //Comme on utilise TAGTERM on envoie l'id de l'initiateur directement
+			}
+			else{
+				//Il envoie au successeur	
+				MPI_Ssend(&id_data_recherche, 1, MPI_INT, rang_mpi_succ, initiateur, MPI_COMM_WORLD);	
+			}
+		}
+		else{
+			if(id_data_recherche <= id_chord && id_data_recherche >= resp){
+				//Ce noeud est responsable de la donnee recherchee
+				printf("Responsable trouve : %d\n", id_chord);
+				MPI_Ssend(&id_chord, 1, MPI_INT, initiateur, TAGRESP, MPI_COMM_WORLD);	
+				//Envoi du message de terminaison a tout ceux qui suivent
+				if(rang_mpi_succ != initiateur)
+					MPI_Ssend(&initiateur, 1, MPI_INT, rang_mpi_succ, TAGTERM, MPI_COMM_WORLD); //Comme on utilise TAGTERM on envoie l'id de l'initiateur directement
+			}
+			else{
+				//Il envoie au successeur	
+				MPI_Ssend(&id_data_recherche, 1, MPI_INT, rang_mpi_succ, initiateur, MPI_COMM_WORLD);	
+			}	
+		}
+	}
+		
 }
 
 
