@@ -7,11 +7,11 @@
 #define NB_SITE 6
 #define NB_DATA 64 /*On suppose que les id des donnees s'etendent de 0 a 64*/
 #define TAGINIT 0
-#define TAGRESP 1
+#define TAGRESP NB_SITE+1 /*Tags negatifs non authorises*/
 #define TAGTERM 2 /*Message de terminaison*/
 #define TAGQUIT 3
 #define TAGQUIT_SPREAD 4
-#define DATA_RECHERCHE 60 /*Modifier cette variable pour chercher le responsable d'une donnee a partir de son id*/
+#define DATA_RECHERCHE 9/*Modifier cette variable pour chercher le responsable d'une donnee a partir de son id*/
 #define QUIT_RANK 1
 
 struct successor{
@@ -125,17 +125,20 @@ void test_initialisation(int rang){
 
 	/*Recherche de la donnee ayant pour id DATA_RECHERCHE*/
 	if(rang == 1){
-		//Tester localement s'il n'est pas lui meme responsable de la donnee qu'il demande 
+		/*Tester localement s'il n'est pas lui meme responsable de la donnee qu'il demande + si la donnee existe*/
 		MPI_Ssend(&id_donnee, 1, MPI_INT, rang_mpi_succ, rang, MPI_COMM_WORLD);	
-		MPI_Recv(&id_chord_resp, 1, MPI_INT, MPI_ANY_SOURCE, TAGRESP, MPI_COMM_WORLD, &status);
-		printf("Le noeud responsable de la donnee %d est a pour id chord : %d\n", id_donnee, id_chord_resp);
+		MPI_Recv(&id_chord_resp, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+		if(status.MPI_TAG == TAGRESP)
+			printf("Le noeud responsable de la donnee %d est a pour id chord : %d\n", id_donnee, id_chord_resp);
+		else //Le message fait un tour complet 
+			printf("La donnee demandee n'existe pas\n");
 	}
 	else{
 		MPI_Recv(&id_data_recherche, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 		if(status.MPI_TAG == TAGTERM){
 			initiateur = id_data_recherche;
 			if(rang_mpi_succ != initiateur)
-				MPI_Ssend(&initiateur, 1, MPI_INT, rang_mpi_succ, TAGTERM, MPI_COMM_WORLD);	
+ 				MPI_Ssend(&initiateur, 1, MPI_INT, rang_mpi_succ, TAGTERM, MPI_COMM_WORLD);
 		}
 		else{
 			initiateur = status.MPI_TAG;
