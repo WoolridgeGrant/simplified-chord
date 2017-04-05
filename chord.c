@@ -110,7 +110,6 @@ void simulateur(void) {
   */
 
 int is_responsible(int resp, int id_chord, int id_data_recherche){
-	printf("is_responsible\n");
 	if(id_chord < resp)
 		return ((id_data_recherche >= resp && id_data_recherche <= NB_DATA) || (id_data_recherche >= 0 && id_data_recherche <= id_chord));
 	else
@@ -145,13 +144,20 @@ void test_initialisation(int rang){
 
 	/*Recherche de la donnee ayant pour id DATA_RECHERCHE*/
 	if(rang == 1){
-		/*Tester localement s'il n'est pas lui meme responsable de la donnee qu'il demande + si la donnee existe*/
-		MPI_Ssend(&id_donnee, 1, MPI_INT, rang_mpi_succ, rang, MPI_COMM_WORLD);	
-		MPI_Recv(&id_chord_resp, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-		if(status.MPI_TAG == TAGRESP)
-			printf("Le noeud responsable de la donnee %d est a pour id chord : %d\n", id_donnee, id_chord_resp);
-		else //Le message fait un tour complet 
-			printf("La donnee demandee n'existe pas\n");
+		/*Teste localement s'il est responsable de la donnee qu'il demande*/
+		if(is_responsible(resp, id_chord, id_donnee)){
+			printf("Responsable localement\n");
+			printf("Le noeud responsable de la donnee %d est a pour id chord : %d\n", id_donnee, id_chord);
+			MPI_Ssend(&rang, 1, MPI_INT, rang_mpi_succ, TAGTERM, MPI_COMM_WORLD);
+		}
+		else{
+			MPI_Ssend(&id_donnee, 1, MPI_INT, rang_mpi_succ, rang, MPI_COMM_WORLD);	
+			MPI_Recv(&id_chord_resp, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+			if(status.MPI_TAG == TAGRESP)
+				printf("Le noeud responsable de la donnee %d est a pour id chord : %d\n", id_donnee, id_chord_resp);
+			else //Le message fait un tour complet 
+				printf("La donnee demandee n'existe pas\n");
+		}
 	}
 	else{
 		MPI_Recv(&id_data_recherche, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
