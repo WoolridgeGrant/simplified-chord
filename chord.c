@@ -12,7 +12,9 @@
 #define TAGQUIT 3
 #define TAGQUIT_SPREAD 4
 #define DATA_RECHERCHE 9/*Modifier cette variable pour chercher le responsable d'une donnee a partir de son id (9, 36, 60 sont de bonnes valeurs)*/
-#define QUIT_RANK 1
+
+/* Rang MPI du pair à supprimer */
+#define QUIT_RANK 5
 
 struct successor{
 	int id_succ;
@@ -130,9 +132,8 @@ void test_initialisation(int rang){
 	int initiateur;
 
 	//Suppression d'un noeud
-	int tmp_resp;
-	int tmp_rang = -1;
-	int tmp_tag;
+	int remove_message;
+	int remove_tag;
 
 	MPI_Status status;
 	MPI_Recv(&id_chord, 1, MPI_INT, NB_SITE, TAGINIT, MPI_COMM_WORLD, &status);
@@ -184,34 +185,41 @@ void test_initialisation(int rang){
 	}
 
 	/*
-	 * Suppressions de pair x
+	 * Gestion de la Dynamicité du Système.
 	 */
+
 	if(rang == QUIT_RANK){
 		MPI_Ssend(&resp, 1, MPI_INT, rang_mpi_succ, TAGQUIT, MPI_COMM_WORLD);
 		printf("[  test_initialisation ], Quitting node -- resp = %d\n", resp);
 		return;
 	}
 	else{
-		MPI_Recv(&tmp_resp, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-		tmp_tag = status.MPI_TAG;
+		MPI_Recv(&remove_message, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+		remove_tag = status.MPI_TAG;
 
-		if(tmp_tag == TAGQUIT){
-			resp = tmp_resp;
+
+		/*
+		 * Le successeur du pair à supprimer envoie:
+		 * remove_message = <id_chord, TAGQUIT_SPREAD>
+		 */
+		if(remove_tag == TAGQUIT){
+			resp = remove_message;
 
 			printf("[  test_initialisation  ]  rang: %d, new_resp: %d\n", rang, resp);
-			if(tmp_rang != rang+1)
+			if(QUIT_RANK != (rang+1) % NB_SITE)
 				MPI_Ssend(&id_chord, 1, MPI_INT, rang_mpi_succ, TAGQUIT_SPREAD, MPI_COMM_WORLD);
 		}
 
 		else{
-			//printf("[  test_initialisation  ]  rang: %d, tmp_resp: %d\n", rang, tmp_resp);
-			if(QUIT_RANK != rang+1)
-				MPI_Ssend(&tmp_resp, 1, MPI_INT, rang_mpi_succ, TAGQUIT_SPREAD, MPI_COMM_WORLD);
-
+			if(QUIT_RANK != (rang+1) % NB_SITE)
+				MPI_Ssend(&remove_message, 1, MPI_INT, rang_mpi_succ, TAGQUIT_SPREAD, MPI_COMM_WORLD);
 
 			else{
-				id_chord_succ = tmp_resp;
-				rang_mpi_succ = QUIT_RANK + 1;
+				/*
+				 * Le prédécesseur du pair à supprimer.
+				 */
+				id_chord_succ = remove_message;
+				rang_mpi_succ = (QUIT_RANK + 1) % NB_SITE;
 			}
 		}
 
