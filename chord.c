@@ -10,7 +10,8 @@
 #define TAGRESP NB_SITE+1 /*Tags negatifs non authorises*/
 #define TAGTERM 2 /*Message de terminaison*/
 #define TAGQUIT 3
-#define TAGQUIT_SPREAD 4
+#define TAGQUIT_OK 4
+#define TAGQUIT_SPREAD 5
 #define DATA_RECHERCHE 9/*Modifier cette variable pour chercher le responsable d'une donnee a partir de son id (9, 36, 60 sont de bonnes valeurs)*/
 
 /* Rang MPI du pair à supprimer */
@@ -202,6 +203,7 @@ void test_initialisation(int rang){
 
 	if(rang == QUIT_RANK){
 		MPI_Ssend(&resp, 1, MPI_INT, rang_mpi_succ, TAGQUIT, MPI_COMM_WORLD);
+		MPI_Recv(&remove_message, 1, MPI_INT, MPI_ANY_SOURCE,TAGQUIT_OK, MPI_COMM_WORLD, &status);
 		printf("[  test_initialisation ], Quitting node -- resp = %d\n", resp);
 		return;
 	}
@@ -230,8 +232,9 @@ void test_initialisation(int rang){
 				/*
 				 * Le prédécesseur du pair à supprimer.
 				 */
-				id_chord_succ = remove_message;
+				MPI_Ssend(&remove_message, 1, MPI_INT, rang_mpi_succ, TAGQUIT_OK, MPI_COMM_WORLD);
 				rang_mpi_succ = (QUIT_RANK + 1) % NB_SITE;
+				id_chord_succ = remove_message;
 			}
 		}
 
