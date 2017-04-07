@@ -21,7 +21,7 @@ struct successor{
 	int rang_succ;
 };
 
-int id_peers[NB_SITE];
+int id_peers[NB_SITE] = {0};
 struct successor succ[NB_SITE];
 int resp[NB_SITE];
 
@@ -42,8 +42,16 @@ void initialisation()
 	 * rang_succ en rang_mpi_succ
 	 */
 
+
+	/*
+	 * à la sorite de cette boucle, on aura:
+	 * pour tout n appartenant à [0, NB_SITE-2]
+	 * id_peers[n + 1] > id_peers[n]
+	 */
 	while(i < NB_SITE){
-		r = rand() % NB_DATA; //à revoir
+		r = rand() % NB_DATA;
+
+		/* Teste si la clef existe déjà */
 		for(j = 0; j < i; j++)
 			if(r == id_peers[j])
 				exist = 1;
@@ -54,9 +62,13 @@ void initialisation()
 		}
 
 		k = 0;
-		while((id_peers[k] != 0) && (r > id_peers[k]))
+		while(r > id_peers[k]){
 			k+=1;
-			
+
+			if(!id_peers[k])
+				break;
+		}
+
 		while(j > k){
 			id_peers[j] = id_peers[j-1];
 			j -= 1;
