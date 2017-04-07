@@ -9,13 +9,28 @@
 #define TAGINIT 0
 #define TAGRESP NB_SITE+1 /*Tags negatifs non authorises*/
 #define TAGTERM 2 /*Message de terminaison*/
+
 #define TAGQUIT 3
 #define TAGQUIT_OK 4
 #define TAGQUIT_SPREAD 5
+
+#define TAGINSERT 6
+#define TAGINSERT_OK 7
+#define TAGINSERT_SPREAD 8
+
 #define DATA_RECHERCHE 9/*Modifier cette variable pour chercher le responsable d'une donnee a partir de son id (9, 36, 60 sont de bonnes valeurs)*/
 
 /* Rang MPI du pair à supprimer */
 #define QUIT_RANK 5
+/* Id_chord du pair à insérer */
+#define INSERT_RANK 5
+/* Id_chord du pair à notifier*/
+#define INSERT_NOTIFY 2
+
+void remove_notify(int, int);
+void remove_node(int, int, int *, int *, int *);
+void insert_notify(int, int);
+void insert_node(int);
 
 struct successor{
 	int id_succ;
@@ -145,8 +160,8 @@ void test_initialisation(int rang){
 	int initiateur;
 
 	//Suppression d'un noeud
-	int remove_message;
-	int remove_tag;
+	//int remove_message;
+	//int remove_tag;
 
 	MPI_Status status;
 	MPI_Recv(&id_chord, 1, MPI_INT, NB_SITE, TAGINIT, MPI_COMM_WORLD, &status);
@@ -201,46 +216,27 @@ void test_initialisation(int rang){
 	 * Gestion de la Dynamicité du Système.
 	 */
 
+
 	if(rang == QUIT_RANK){
-		MPI_Ssend(&resp, 1, MPI_INT, rang_mpi_succ, TAGQUIT, MPI_COMM_WORLD);
-		MPI_Recv(&remove_message, 1, MPI_INT, MPI_ANY_SOURCE,TAGQUIT_OK, MPI_COMM_WORLD, &status);
-		printf("[  test_initialisation ], Quitting node -- resp = %d\n", resp);
-		return;
+		remove_notify(resp, rang_mpi_succ);
 	}
 	else{
-		MPI_Recv(&remove_message, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-		remove_tag = status.MPI_TAG;
-
-
-		/*
-		 * Le successeur du pair à supprimer envoie:
-		 * remove_message = <id_chord, TAGQUIT_SPREAD>
-		 */
-		if(remove_tag == TAGQUIT){
-			resp = remove_message;
-
-			printf("[  test_initialisation  ]  rang: %d, new_resp: %d\n", rang, resp);
-			if(QUIT_RANK != (rang+1) % NB_SITE)
-				MPI_Ssend(&id_chord, 1, MPI_INT, rang_mpi_succ, TAGQUIT_SPREAD, MPI_COMM_WORLD);
-		}
-
-		else{
-			if(QUIT_RANK != (rang+1) % NB_SITE)
-				MPI_Ssend(&remove_message, 1, MPI_INT, rang_mpi_succ, TAGQUIT_SPREAD, MPI_COMM_WORLD);
-
-			else{
-				/*
-				 * Le prédécesseur du pair à supprimer.
-				 */
-				MPI_Ssend(&remove_message, 1, MPI_INT, rang_mpi_succ, TAGQUIT_OK, MPI_COMM_WORLD);
-				rang_mpi_succ = (QUIT_RANK + 1) % NB_SITE;
-				id_chord_succ = remove_message;
-			}
-		}
-
+		remove_node(rang, id_chord, &resp, &rang_mpi_succ, &id_chord_succ);
+		printf("[ Step 2 ] rang: %d, id_chord: %d,id_chord_succ: %d, rang_mpi_succ: %d.\n",
+							rang, id_chord, id_chord_succ, rang_mpi_succ);
 	}
 
-	printf("Mon rang : %d, Mon id_chord : %d, Mon successeur : %d, rang succ: %d\n", rang, id_chord, id_chord_succ, rang_mpi_succ);
+
+	if(rang == INSERT_RANK){
+		insert_notify(id_chord, rang);
+	}
+	else{
+		insert_node(rang);
+	}
+
+
+
+
 }
 
 
@@ -270,3 +266,74 @@ int main (int argc, char* argv[]) {
 	return 0;
 }
 
+void remove_notify(int resp, int rang_mpi_succ)
+{
+	int remove_message;
+	MPI_Status status;
+
+	MPI_Ssend(&resp, 1, MPI_INT, rang_mpi_succ, TAGQUIT, MPI_COMM_WORLD);
+	MPI_Recv(&remove_message, 1, MPI_INT, MPI_ANY_SOURCE,TAGQUIT_OK, MPI_COMM_WORLD, &status);
+        printf("[  test_initialisation ], Quitting node -- resp = %d\n", resp);
+}
+
+void remove_node(int rang, int id_chord, int *resp, int *rang_mpi_succ, int *id_chord_succ)
+{
+	int remove_tag;
+	int remove_message;
+	MPI_Status status;
+
+
+	MPI_Recv(&remove_message, 1, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+	remove_tag = status.MPI_TAG;
+
+	/*
+	** Le successeur du pair à supprimer envoie:
+	** remove_message = <id_chord, TAGQUIT_SPREAD>
+	**/
+	if(remove_tag == TAGQUIT){
+		*resp = remove_message;
+
+		//printf("[  test_initialisation  ]  rang: %d, new_resp: %d\n", rang, resp);
+		if(QUIT_RANK != (rang+1) % NB_SITE)
+			MPI_Ssend(&id_chord, 1, MPI_INT, *rang_mpi_succ, TAGQUIT_SPREAD, MPI_COMM_WORLD);
+	}
+
+	else{
+		if(QUIT_RANK != (rang+1) % NB_SITE)
+		MPI_Ssend(&remove_message, 1, MPI_INT, *rang_mpi_succ, TAGQUIT_SPREAD, MPI_COMM_WORLD);
+
+		else{
+			/*
+			** Le prédécesseur du pair à supprimer.
+			*/
+			MPI_Ssend(&remove_message, 1, MPI_INT, *rang_mpi_succ, TAGQUIT_OK, MPI_COMM_WORLD);
+			*rang_mpi_succ = (QUIT_RANK + 1) % NB_SITE;
+			*id_chord_succ = remove_message;
+		}
+	}
+}
+
+
+
+
+
+
+void insert_notify(int id_chord, int rang){
+
+	int data_insert[1][2] = {{id_chord, rang}};
+	MPI_Ssend(&data_insert, 2, MPI_INT, INSERT_NOTIFY, TAGINSERT, MPI_COMM_WORLD);
+}
+
+
+
+void insert_node(int rang){
+
+	int insert_message[2];
+	MPI_Status status;
+
+	if(rang == INSERT_NOTIFY)
+		MPI_Recv(insert_message, 2, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+	if(rang == INSERT_NOTIFY)
+		printf("[  insert_node  ] rank: %d\n", rang);
+	return;
+}
