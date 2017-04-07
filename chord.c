@@ -25,12 +25,12 @@
 /* Id_chord du pair à insérer */
 #define INSERT_RANK 5
 /* Id_chord du pair à notifier*/
-#define INSERT_NOTIFY 2
+#define INSERT_NOTIFY 0
 
 void remove_notify(int, int);
 void remove_node(int, int, int *, int *, int *);
-void insert_notify(int, int);
-void insert_node(int);
+void insert_notify(int, int, int *, int *);
+void insert_node(int, int, int *, int *, int *);
 
 struct successor{
 	int id_succ;
@@ -212,10 +212,11 @@ void test_initialisation(int rang){
 	
 	}
 
+
 	/*
 	 * Gestion de la Dynamicité du Système.
+	 * Supprimer un peer
 	 */
-
 
 	if(rang == QUIT_RANK){
 		remove_notify(resp, rang_mpi_succ);
@@ -226,17 +227,17 @@ void test_initialisation(int rang){
 							rang, id_chord, id_chord_succ, rang_mpi_succ);
 	}
 
+	/*
+	 * Insérer un peer
+	 */
 
-	if(rang == INSERT_RANK){
-		insert_notify(id_chord, rang);
-	}
-	else{
-		insert_node(rang);
-	}
+	if(rang == INSERT_RANK)
+		insert_notify(rang, id_chord, &rang_mpi_succ, &id_chord_succ);
+	else
+		insert_node(rang, id_chord, &rang_mpi_succ, &id_chord_succ, &resp);
 
-
-
-
+	printf("[ Step 3 ] rang: %d, id_chord: %d,id_chord_succ: %d, rang_mpi_succ: %d.\n",
+		rang, id_chord, id_chord_succ, rang_mpi_succ);
 }
 
 
@@ -247,7 +248,6 @@ int main (int argc, char* argv[]) {
 
 	if (nb_proc != NB_SITE+1) {
 		printf("Nombre de processus incorrect !\n");
-		MPI_Finalize();
 		exit(2);
 	}
 
@@ -313,27 +313,82 @@ void remove_node(int rang, int id_chord, int *resp, int *rang_mpi_succ, int *id_
 	}
 }
 
+int is_predecessor(int id_chord, int id_chord_succ, int insert_id_chord)
+{
 
+	if(insert_id_chord > id_chord)
+		if(insert_id_chord < id_chord_succ)
+			if(id_chord_succ > id_chord)
+				return 1;
 
+	if(insert_id_chord > id_chord)
+		if(id_chord > id_chord_succ)
+			if(id_chord > id_chord_succ)
+				return 1;
 
-
-
-void insert_notify(int id_chord, int rang){
-
-	int data_insert[1][2] = {{id_chord, rang}};
-	MPI_Ssend(&data_insert, 2, MPI_INT, INSERT_NOTIFY, TAGINSERT, MPI_COMM_WORLD);
+	if(insert_id_chord < id_chord)
+		if(insert_id_chord < id_chord_succ)
+			if(id_chord > id_chord_succ)
+				return 1;
+        return 0;
 }
 
+void insert_notify(int rang, int id_chord, int *rang_mpi_succ, int *id_chord_succ){
 
-
-void insert_node(int rang){
-
-	int insert_message[2];
+	int insert_message[3];
+	int data_insert[1][3] = {{rang, id_chord, 0}};
 	MPI_Status status;
 
-	if(rang == INSERT_NOTIFY)
-		MPI_Recv(insert_message, 2, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-	if(rang == INSERT_NOTIFY)
-		printf("[  insert_node  ] rank: %d\n", rang);
-	return;
+	MPI_Ssend(&data_insert, 3, MPI_INT, INSERT_NOTIFY, TAGINSERT, MPI_COMM_WORLD);
+	MPI_Recv(insert_message, 3, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+
+	*id_chord_succ = insert_message[0];
+	*rang_mpi_succ = insert_message[1];
+
+	if(*rang_mpi_succ != insert_message[2])
+		MPI_Ssend(insert_message, 3, MPI_INT, *rang_mpi_succ, TAGINSERT_SPREAD, MPI_COMM_WORLD);
+}
+
+void insert_node(int rang, int id_chord, int *rang_mpi_succ, int *id_chord_succ, int *resp){
+
+	int insert_tag;
+	int insert_rang;
+	int insert_id_chord;
+	int insert_message[3];
+
+	int tmp_id_chord_succ;
+	int tmp_rang_mpi_succ;
+	MPI_Status status;
+
+	MPI_Recv(insert_message, 3, MPI_INT, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+	insert_tag = status.MPI_TAG;
+	insert_rang = insert_message[0];
+	insert_id_chord = insert_message[1];
+
+	/*
+	 * Le peer notifié par l'insertion peut etre:
+	 * futur successeur, futur predecesseur, ou
+	 * ou ni l'un ni l'autre.
+	 */
+
+	printf("[  insert_node  ] Insert notification: %d\n", rang);
+	if(insert_tag == TAGINSERT)
+		insert_message[2] = rang;
+
+	if(is_responsible(*resp, id_chord, insert_id_chord))
+		*resp = insert_id_chord + 1;
+	else
+		if( is_predecessor(id_chord, *id_chord_succ, insert_id_chord)){
+			tmp_rang_mpi_succ = insert_rang;
+			tmp_id_chord_succ = insert_id_chord;
+
+			insert_message[0] = *id_chord_succ;
+			insert_message[1] = *rang_mpi_succ;
+
+			*id_chord_succ = tmp_id_chord_succ;
+			*rang_mpi_succ = tmp_rang_mpi_succ;
+		}
+
+	if(insert_tag == TAGINSERT || (insert_tag != TAGINSERT  &&  *rang_mpi_succ != insert_message[2]))
+		MPI_Ssend(insert_message, 3, MPI_INT, *rang_mpi_succ, TAGINSERT_SPREAD, MPI_COMM_WORLD);
 }
