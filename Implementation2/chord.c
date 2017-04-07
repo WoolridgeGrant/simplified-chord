@@ -17,7 +17,7 @@
 #define DATA_RECHERCHE 60/*Modifier cette variable pour chercher le responsable d'une donnee a partir de son id (9, 36, 60 sont de bonnes valeurs)*/
 
 
-int id_chord[NB_SITE];
+int id_chord[NB_SITE] = {0};
 int resp[NB_SITE];
 /**
  * 3 colonnes : (id_chord + 2^i)% (2^I), j_mpi, j_chord
@@ -47,8 +47,17 @@ void initialisation()
 	 */
 	
 	srand(time(NULL));
+
+	/*
+	 * à la sorite de cette boucle, on aura:
+	 * pour tout n appartenant à [0, NB_SITE-2]
+	 * id_chord[n + 1] > id_chord[n]
+	 */
+
 	while(i < NB_SITE){
 		r = rand() % NB_DATA;
+
+		/* Teste si la clef existe déjà */
 		for(j = 0; j < i; j++)
 			if(r == id_chord[j])
 				exist = 1;
@@ -59,9 +68,13 @@ void initialisation()
 		}
 
 		k = 0;
-		while((id_chord[k] != 0) && (r > id_chord[k]))
+		while(r > id_chord[k]){
 			k+=1;
-			
+
+			if(!id_chord[k])
+				break;
+		}
+
 		while(j > k){
 			id_chord[j] = id_chord[j-1];
 			j -= 1;
