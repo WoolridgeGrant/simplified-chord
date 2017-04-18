@@ -33,11 +33,11 @@ void insert_notify(int, int, int *, int *);
 void insert_node(int, int, int *, int *, int *);
 
 struct successor{
-	int id_succ;
-	int rang_succ;
+	int id_chord_succ;
+	int rang_mpi_succ;
 };
 
-int id_peers[NB_SITE] = {0};
+int id_chord[NB_SITE] = {0};
 struct successor succ[NB_SITE];
 int resp[NB_SITE];
 
@@ -60,14 +60,14 @@ void initialisation(){
 	/*
 	 * à la sortie de cette boucle, on aura:
 	 * pour tout n appartenant à [0, NB_SITE-2]
-	 * id_peers[n + 1] > id_peers[n]
+	 * id_chord[n + 1] > id_chord[n]
 	 */
 	while(i < NB_SITE){
 		r = rand() % NB_DATA;
 
 		/* Teste si la clef existe déjà */
 		for(j = 0; j < i; j++)
-			if(r == id_peers[j])
+			if(r == id_chord[j])
 				exist = 1;
 
 		if(exist){
@@ -76,38 +76,38 @@ void initialisation(){
 		}
 
 		k = 0;
-		while(r > id_peers[k]){
+		while(r > id_chord[k]){
 			k+=1;
 
-			if(!id_peers[k])
+			if(!id_chord[k])
 				break;
 		}
 
 		while(j > k){
-			id_peers[j] = id_peers[j-1];
+			id_chord[j] = id_chord[j-1];
 			j -= 1;
 		}
 
-		id_peers[k] = r;
+		id_chord[k] = r;
 		i++;
 	}
 
-	resp[0] = (id_peers[NB_SITE - 1] + 1) % NB_DATA;
+	resp[0] = (id_chord[NB_SITE - 1] + 1) % NB_DATA;
 	for(i = 1; i < NB_SITE; i++)
-		resp[i] = id_peers[i-1] + 1;
+		resp[i] = id_chord[i-1] + 1;
 
 	for(i = 0; i < NB_SITE; i++)
-		printf("[  initialisation ]  id_peers[%d] = %d\n", i, id_peers[i]);
+		printf("[  initialisation ]  id_chord[%d] = %d\n", i, id_chord[i]);
 
 	for(i = 0; i < NB_SITE; i++)
 		printf("[  initialisation ]  resp[%d] = %d\n", i, resp[i]);
 
 	//Definition du successeur de chacun des sites
-	succ[NB_SITE-1].id_succ = id_peers[0];
-	succ[NB_SITE-1].rang_succ = 0;
+	succ[NB_SITE-1].id_chord_succ = id_chord[0];
+	succ[NB_SITE-1].rang_mpi_succ = 0;
 	for(i=0; i < NB_SITE-1; i++){
-		succ[i].id_succ = id_peers[i+1];
-		succ[i].rang_succ = i+1;
+		succ[i].id_chord_succ = id_chord[i+1];
+		succ[i].rang_mpi_succ = i+1;
 	}
 }
 
@@ -124,8 +124,8 @@ void simulateur(void){
 			       
 	for(i=0; i<NB_SITE; i++){
 		//i car le dernier processus est l'initiateur
-		MPI_Ssend(&id_peers[i], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);  		//son propre id  
-		MPI_Ssend(&succ[i].id_succ, 1, MPI_INT, i, succ[i].rang_succ, MPI_COMM_WORLD);	//son successeur (envoi du rang MPI du successeur via le TAG)
+		MPI_Ssend(&id_chord[i], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);  		//son propre id  
+		MPI_Ssend(&succ[i].id_chord_succ, 1, MPI_INT, i, succ[i].rang_mpi_succ, MPI_COMM_WORLD);	//son successeur (envoi du rang MPI du successeur via le TAG)
 		MPI_Ssend(&resp[i], 1, MPI_INT, i, TAGINIT, MPI_COMM_WORLD);			//l'id de la premiere donnee dont il responsable
 	}
 }
