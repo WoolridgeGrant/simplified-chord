@@ -53,11 +53,6 @@ void initialisation()
 	 * Definition des id des differents 
 	 * sites de maniere aleatoire
 	 */
-	/*TODO: Changer id_peers en id_chord
-	 * id_succ en id_chord_succ
-	 * rang_succ en rang_mpi_succ
-	 */
-
 
 	/*
 	 * à la sorite de cette boucle, on aura:
