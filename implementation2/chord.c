@@ -138,7 +138,7 @@ int whois_responsible(int id_data){
   *
   * @id_chord: id chord du noeud
   * 
-  * @id_data_recherche : id de la donnée recherchée
+  * @id_data_recherche: id de la donnée recherchée
   *
   * @return: retourne 1 si la donnée recherchée est gérée par le noeud appelant is_responsible, sinon retourne 0 
   */
@@ -178,7 +178,7 @@ int find_finger(int id_data, int ft[I][3], int id_chord){
   *
   * @initiateur: rang mpi de l'initiateur de la recherche
   *
-  * @id_chord : id chord du site appelant lookup
+  * @id_chord: id chord du site appelant lookup
   *
   */
 
@@ -191,6 +191,14 @@ void lookup(int id_data, int initiateur, int ft[I][3], int id_chord){
 		MPI_Send(tab, 2, MPI_INT, finger, LOOKUP, MPI_COMM_WORLD);
 }
 
+
+/**
+  * scenario - exécute le scénario de l'énoncé, initialisation puis recherche
+  * 		   d'un id chord.
+  *
+  * @rang: rang MPI du processus exécutant la fonction
+  *
+  */
 
 void scenario(int rang){
 	//Initialisation
