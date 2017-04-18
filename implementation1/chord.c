@@ -43,9 +43,12 @@ int resp[NB_SITE];
 
 int id_ajout = -1;
 
-//Reste a definir le random pour l'ajout et le resp
-void initialisation()
-{
+/**
+  * initialisation - Détermine l'id chord, le successeur de chaque site ainsi que 
+  * 					l'id de la première donnée dont chaque site est responsable 
+  */
+
+void initialisation(){
 	int r = 0, i = 0, j = 0, k = 0;
 	int exist = 0;	
 
@@ -55,7 +58,7 @@ void initialisation()
 	 */
 
 	/*
-	 * à la sorite de cette boucle, on aura:
+	 * à la sortie de cette boucle, on aura:
 	 * pour tout n appartenant à [0, NB_SITE-2]
 	 * id_peers[n + 1] > id_peers[n]
 	 */
@@ -108,7 +111,12 @@ void initialisation()
 	}
 }
 
-void simulateur(void) {
+/**
+  * simulateur - Envoie l'id chord, le successeur et la première donnée dont un site est reponsable
+  * 				à chaque site.
+  */
+
+void simulateur(void){
 	int i;
 	
 	srand(time(NULL));
@@ -141,7 +149,13 @@ int is_responsible(int resp, int id_chord, int id_data_recherche){
 		return (id_data_recherche <= id_chord && id_data_recherche >= resp);
 }
 
-void test_initialisation(int rang){
+/**
+  * execution - Execute le scénario demandé dans l'énoncé 
+  *
+  * @rang: le rang MPI du processus exécutant la fonction
+  */
+
+void execution(int rang){
 	//Initialisation
 	int id_chord;
 	int id_chord_succ;
@@ -153,10 +167,6 @@ void test_initialisation(int rang){
 	int id_data_recherche; //L'id de la donnee que l'on recherche
 	int id_donnee = DATA_RECHERCHE; //L'id de la donnee que l'on recherche
 	int initiateur;
-
-	//Suppression d'un noeud
-	//int remove_message;
-	//int remove_tag;
 
 	MPI_Status status;
 	MPI_Recv(&id_chord, 1, MPI_INT, NB_SITE, TAGINIT, MPI_COMM_WORLD, &status);
@@ -210,7 +220,7 @@ void test_initialisation(int rang){
 
 	/*
 	 * Gestion de la Dynamicité du Système.
-	 * Supprimer un peer
+	 * Supprimer un noeud 
 	 */
 
 	if(rang == QUIT_RANK){
@@ -223,7 +233,7 @@ void test_initialisation(int rang){
 	}
 
 	/*
-	 * Insérer un peer
+	 * Insérer un noeud
 	 */
 
 	if(rang == INSERT_RANK)
@@ -235,44 +245,49 @@ void test_initialisation(int rang){
 		rang, id_chord, id_chord_succ, rang_mpi_succ);
 }
 
+/**
+  * remove_notify - Le noeud quittant l'anneau exécute cette fonction.
+  * 				Elle envoie un message de type TAGQUIT à son successeur qui fait
+  * 				suivre le message. Une fois que le message est arrivé au prédecesseur
+  * 				du noeud qui quitte, ce prédecesseur envoie un message TAGQUIT_OK à
+  * 				son successeur pour lui dire qu'il peut quitter. 
+  * 				Nous avons fait ce choix d'implémentation pour synchroniser les messages.
+  * 				Sans cette méthode nous avions des messages entre l'étape de la suppression
+  * 				et l'étape de l'insertion qui se chevauchaient.
+  *
+  * @resp: La première donnée dont est responsable le noeud quittant l'anneau
+  *
+  * @rang_mpi_succ: Rang MPI du successeur du noeud qui quitte
+  *
+  */
 
-int main (int argc, char* argv[]) {
-	int nb_proc,rang;
-	MPI_Init(&argc, &argv);
-	MPI_Comm_size(MPI_COMM_WORLD, &nb_proc);
-
-	if (nb_proc != NB_SITE+1) {
-		printf("Nombre de processus incorrect !\n");
-		exit(2);
-	}
-
-	MPI_Comm_rank(MPI_COMM_WORLD, &rang);
-
-	//L'initiateur va etre le dernier processus pour des raisons pratiques (par rapport a l'indice la boucle
-	//De cette maniere les rang MPI des sites iront de 0 a NB_SITE-1 et l'initiateur aura
-	//pour rang MPI NB_SITE
-
-	if (rang == NB_SITE)
-		simulateur();
-	else
-		test_initialisation(rang);
-
-	MPI_Finalize();
-	return 0;
-}
-
-void remove_notify(int resp, int rang_mpi_succ)
-{
+void remove_notify(int resp, int rang_mpi_succ){
 	int remove_message;
 	MPI_Status status;
 
 	MPI_Ssend(&resp, 1, MPI_INT, rang_mpi_succ, TAGQUIT, MPI_COMM_WORLD);
 	MPI_Recv(&remove_message, 1, MPI_INT, MPI_ANY_SOURCE,TAGQUIT_OK, MPI_COMM_WORLD, &status);
-        printf("[  test_initialisation ], Quitting node -- resp = %d\n", resp);
+        printf("[  execution ], Quitting node -- resp = %d\n", resp);
 }
 
-void remove_node(int rang, int id_chord, int *resp, int *rang_mpi_succ, int *id_chord_succ)
-{
+/**
+  * remove_node - Méthode exécutée par tous les noeuds sauf celui quittant l'anneau.
+  * 			  Chaque noeud transmet le message TAGQUIT afin que le prédécesseur
+  * 			  et successeur du noeud quittant l'anneau puissent se réorganiser.
+  *
+  * @rang: rang MPI du noeud exécutant la fonction
+  *
+  * @id_chord: id_chord du noeud exécutant la fonction
+  *
+  * @resp: id de la première donnée dont le noeud exécutant la fonction est responsable
+  *
+  * @rang_mpi_succ: rang MPI du successeur
+  *
+  * @id_chord_succ: id chord du successeur
+  *
+  */
+
+void remove_node(int rang, int id_chord, int *resp, int *rang_mpi_succ, int *id_chord_succ){
 	int remove_tag;
 	int remove_message;
 	MPI_Status status;
@@ -288,7 +303,6 @@ void remove_node(int rang, int id_chord, int *resp, int *rang_mpi_succ, int *id_
 	if(remove_tag == TAGQUIT){
 		*resp = remove_message;
 
-		//printf("[  test_initialisation  ]  rang: %d, new_resp: %d\n", rang, resp);
 		if(QUIT_RANK != (rang+1) % NB_SITE)
 			MPI_Ssend(&id_chord, 1, MPI_INT, *rang_mpi_succ, TAGQUIT_SPREAD, MPI_COMM_WORLD);
 	}
@@ -308,8 +322,12 @@ void remove_node(int rang, int id_chord, int *resp, int *rang_mpi_succ, int *id_
 	}
 }
 
-int is_predecessor(int id_chord, int id_chord_succ, int insert_id_chord)
-{
+/** 
+  * id_predecessor - a changer 
+  * 
+  */
+
+int is_predecessor(int id_chord, int id_chord_succ, int insert_id_chord){
 
 	if(insert_id_chord > id_chord)
 		if(insert_id_chord < id_chord_succ)
@@ -328,6 +346,13 @@ int is_predecessor(int id_chord, int id_chord_succ, int insert_id_chord)
         return 0;
 }
 
+/** 
+  * insert_notify - Exécutée par le processus qui va se réinsérer dans l'anneau 
+  *
+  * Voir remove_notify pour les explications sur les arguments
+  * 
+  */
+
 void insert_notify(int rang, int id_chord, int *rang_mpi_succ, int *id_chord_succ){
 
 	int insert_message[3];
@@ -343,6 +368,13 @@ void insert_notify(int rang, int id_chord, int *rang_mpi_succ, int *id_chord_suc
 	if(*rang_mpi_succ != insert_message[2])
 		MPI_Ssend(insert_message, 3, MPI_INT, *rang_mpi_succ, TAGINSERT_SPREAD, MPI_COMM_WORLD);
 }
+
+/** 
+  * insert_node - Exécutée par les processus qui sont déjà dans l'anneau
+  *
+  * Voir remove_node pour les explications sur les arguments
+  * 
+  */
 
 void insert_node(int rang, int id_chord, int *rang_mpi_succ, int *id_chord_succ, int *resp){
 
@@ -386,4 +418,29 @@ void insert_node(int rang, int id_chord, int *rang_mpi_succ, int *id_chord_succ,
 
 	if(insert_tag == TAGINSERT || (insert_tag != TAGINSERT  &&  *rang_mpi_succ != insert_message[2]))
 		MPI_Ssend(insert_message, 3, MPI_INT, *rang_mpi_succ, TAGINSERT_SPREAD, MPI_COMM_WORLD);
+}
+
+int main (int argc, char* argv[]) {
+	int nb_proc,rang;
+	MPI_Init(&argc, &argv);
+	MPI_Comm_size(MPI_COMM_WORLD, &nb_proc);
+
+	if (nb_proc != NB_SITE+1) {
+		printf("Nombre de processus incorrect !\n");
+		exit(2);
+	}
+
+	MPI_Comm_rank(MPI_COMM_WORLD, &rang);
+
+	//L'initiateur va etre le dernier processus pour des raisons pratiques (par rapport a l'indice la boucle
+	//De cette maniere les rang MPI des sites iront de 0 a NB_SITE-1 et l'initiateur aura
+	//pour rang MPI NB_SITE
+
+	if (rang == NB_SITE)
+		simulateur();
+	else
+		execution(rang);
+
+	MPI_Finalize();
+	return 0;
 }
