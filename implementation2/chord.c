@@ -14,7 +14,7 @@
 #define LASTCHANCE 2 
 #define ANSWER 3
 #define END 4
-#define DATA_RECHERCHE 60/*Modifier cette variable pour chercher le responsable d'une donnee a partir de son id (9, 36, 60 sont de bonnes valeurs)*/
+#define DATA_RECHERCHE 1/*Modifier cette variable pour chercher le responsable d'une donnee a partir de son id (9, 36, 60 sont de bonnes valeurs)*/
 
 
 int id_chord[NB_SITE] = {0};
@@ -253,9 +253,13 @@ void scenario(int rang){
 			else
 				printf("Le responsable de la donnée %d est le site ayant pour id chord %d\n", DATA_RECHERCHE, reponse);
 		}
-		else
-			fprintf(stderr, "ERREUR : Réception par l'initiateur d'un message inattendu\n");	
-
+		else{
+			if(is_responsible(resp, id_chord, DATA_RECHERCHE))
+				printf("Le responsable de la donnée est %d est le site ayant pour id chord %d\n", DATA_RECHERCHE, id_chord);
+			else
+				printf("La donnée recherchée n'existe pas\n");
+		}
+			
 		/* Envoie d'un message à tous les processus pour reveiller ceux 
 		 * qui attendent encore un message
 		 */
