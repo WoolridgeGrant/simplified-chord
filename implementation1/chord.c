@@ -323,28 +323,20 @@ void remove_node(int rang, int id_chord, int *resp, int *rang_mpi_succ, int *id_
 }
 
 /** 
-  * id_predecessor - a changer 
+  * is_predecessor - Renvoie 1 si le pair d'id 'id_chord' est le prédécesseur d'
+  *                  	- un pair d'id 'request_data' ou,
+  *			- un pair responsable d'une donnée d'id 'request_data'
   * 
   */
 
-int is_predecessor(int id_chord, int id_chord_succ, int insert_id_chord){
+int is_predecessor(int request_data, int id_chord, int successor_chord)
+{
+	if (successor_chord > id_chord)
+		return (request_data > id_chord && request_data <= successor_chord);
 
-	if(insert_id_chord > id_chord)
-		if(insert_id_chord < id_chord_succ)
-			if(id_chord_succ > id_chord)
-				return 1;
-
-	if(insert_id_chord > id_chord)
-		if(id_chord > id_chord_succ)
-			if(id_chord > id_chord_succ)
-				return 1;
-
-	if(insert_id_chord < id_chord)
-		if(insert_id_chord < id_chord_succ)
-			if(id_chord > id_chord_succ)
-				return 1;
-        return 0;
+	return (!(request_data > successor_chord && request_data <= id_chord));
 }
+
 
 /** 
   * insert_notify - Exécutée par le processus qui va se réinsérer dans l'anneau 
